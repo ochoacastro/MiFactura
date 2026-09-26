@@ -1027,18 +1027,9 @@ async function renderAnalisis(){
     byTipoReg[f.tipo][mk] = (byTipoReg[f.tipo][mk] || 0) + f.valor;
   });
 
-  // group by tipo -> mes -> total (solo facturas ya pagadas, para el total mensual)
-  const byTipo = { agua:{}, gas:{}, energia:{} };
-  facturas.filter(f=>f.fechaPago).forEach(f=>{
-    const mk = monthKey(f.fechaPago);
-    if(!mk) return;
-    byTipo[f.tipo][mk] = (byTipo[f.tipo][mk] || 0) + f.valor;
-  });
-
-  // meses según fecha de registro (para tarjetas y gráfica)
+  // meses según fecha de vencimiento: se usan para tarjetas, gráfica,
+  // consumo promedio y total mensual, combinando facturas pendientes + pagadas
   const allMonthsReg = [...new Set(Object.values(byTipoReg).flatMap(o=>Object.keys(o)))].sort();
-  // meses según fecha de pago (para el total mensual)
-  const allMonths = [...new Set(Object.values(byTipo).flatMap(o=>Object.keys(o)))].sort();
 
   // stat cards: última factura registrada vs. la anterior registrada, por tipo
   statGrid.innerHTML = '';
@@ -1072,8 +1063,8 @@ async function renderAnalisis(){
 
   // ---- Consumo promedio (últimos 6 meses) ----
   const consumoByTipo = { agua:{}, gas:{}, energia:{} };
-  facturas.filter(f=>f.fechaPago && f.consumo!=null && !isNaN(f.consumo)).forEach(f=>{
-    const mk = monthKey(f.fechaPago);
+  facturas.filter(f=>f.consumo!=null && !isNaN(f.consumo)).forEach(f=>{
+    const mk = monthKey(f.fechaVencimiento);
     if(!mk) return;
     if(!consumoByTipo[f.tipo][mk]) consumoByTipo[f.tipo][mk] = [];
     consumoByTipo[f.tipo][mk].push(f.consumo);
@@ -1107,13 +1098,13 @@ async function renderAnalisis(){
   });
   consumoEmpty.style.display = hayConsumo ? 'none' : 'block';
 
-  // ---- Total mensual de los 3 servicios ----
-  if(allMonths.length === 0){
-    listaTotales.innerHTML = '<p class="empty">Aún no hay pagos registrados.</p>';
+  // ---- Total mensual de los 3 servicios (pendientes + pagadas) ----
+  if(allMonthsReg.length === 0){
+    listaTotales.innerHTML = '<p class="empty">Aún no hay facturas registradas.</p>';
   }else{
     listaTotales.innerHTML = '';
-    [...allMonths].reverse().forEach(mk=>{
-      const total = Object.keys(TIPOS).reduce((sum,tipo)=> sum + (byTipo[tipo][mk]||0), 0);
+    [...allMonthsReg].reverse().forEach(mk=>{
+      const total = Object.keys(TIPOS).reduce((sum,tipo)=> sum + (byTipoReg[tipo][mk]||0), 0);
       const div = document.createElement('div');
       div.className = 'payment-item';
       div.innerHTML = `
@@ -1122,7 +1113,7 @@ async function renderAnalisis(){
           <span class="value">$${fmtMoney(total)}</span>
         </div>
         <div class="meta">
-          Agua: $${fmtMoney(byTipo.agua[mk]||0)} · Gas: $${fmtMoney(byTipo.gas[mk]||0)} · Energía: $${fmtMoney(byTipo.energia[mk]||0)}
+          Agua: $${fmtMoney(byTipoReg.agua[mk]||0)} · Gas: $${fmtMoney(byTipoReg.gas[mk]||0)} · Energía: $${fmtMoney(byTipoReg.energia[mk]||0)}
         </div>`;
       listaTotales.appendChild(div);
     });
