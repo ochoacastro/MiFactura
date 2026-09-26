@@ -1002,6 +1002,14 @@ function monthKey(iso){
   return iso ? iso.slice(0,7) : null; // YYYY-MM
 }
 
+// fecha de referencia para el análisis: se prioriza la fecha de pago real
+// (todos los recibos se pagan el mismo día del mes, así que es más consistente
+// entre agua/gas/energía) y solo se usa el vencimiento como respaldo mientras
+// la factura sigue pendiente de pago
+function fechaAnalisis(f){
+  return f.fechaPago || f.fechaVencimiento;
+}
+
 function monthLabel(key){
   const [y,m] = key.split('-');
   const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -1018,17 +1026,17 @@ async function renderAnalisis(){
   const listaTotales = document.getElementById('lista-totales-mensuales');
 
   // group by tipo -> mes -> total, usando TODAS las facturas registradas
-  // (sin importar si ya se pagaron), agrupadas por su fecha de vencimiento
-  // (el mes real de la factura, no cuándo se tipeó en el sistema)
+  // (pendientes + pagadas), agrupadas por fecha de pago real; si aún no se
+  // ha pagado, se usa el vencimiento como estimado temporal
   const byTipoReg = { agua:{}, gas:{}, energia:{} };
   facturas.forEach(f=>{
-    const mk = monthKey(f.fechaVencimiento);
+    const mk = monthKey(fechaAnalisis(f));
     if(!mk) return;
     byTipoReg[f.tipo][mk] = (byTipoReg[f.tipo][mk] || 0) + f.valor;
   });
 
-  // meses según fecha de vencimiento: se usan para tarjetas, gráfica,
-  // consumo promedio y total mensual, combinando facturas pendientes + pagadas
+  // meses según fecha de pago (o vencimiento si sigue pendiente): se usan
+  // para tarjetas, gráfica, consumo promedio y total mensual
   const allMonthsReg = [...new Set(Object.values(byTipoReg).flatMap(o=>Object.keys(o)))].sort();
 
   // stat cards: última factura registrada vs. la anterior registrada, por tipo
@@ -1064,9 +1072,7 @@ async function renderAnalisis(){
   // ---- Consumo promedio (últimos 6 meses) ----
   const consumoByTipo = { agua:{}, gas:{}, energia:{} };
   facturas.filter(f=>f.consumo!=null && !isNaN(f.consumo)).forEach(f=>{
-    const mk = monthKey(f.fechaVencimiento);
-    if(!mk) return;
-    if(!consumoByTipo[f.tipo][mk]) consumoByTipo[f.tipo][mk] = [];
+    const mk = monthKey(fechaAnalisis(f));
     consumoByTipo[f.tipo][mk].push(f.consumo);
   });
 
