@@ -290,10 +290,17 @@
   .stat .label{font-size:11.5px; color:var(--ink-soft); font-weight:600; margin-bottom:6px;}
   .stat .pct{font-size:18px; font-weight:800;}
   .stat .amt{font-size:11.5px; color:var(--ink-soft); margin-top:4px;}
+  .stat .diff-cop{font-size:12.5px; font-weight:700; margin-top:3px;}
+  .diff-cop.up{color:var(--up);}
+  .diff-cop.down{color:var(--down);}
+  .diff-cop.flat{color:var(--ink-soft);}
   .pct.up{color:var(--up);}
   .pct.down{color:var(--down);}
   .pct.flat{color:var(--ink-soft);}
 
+  .chart-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:6px;}
+  .chart-scroll-inner{position:relative; height:260px;}
+  .chart-scroll-inner canvas{width:100% !important; height:100% !important;}
   canvas{max-width:100%;}
 </style>
 </head>
@@ -473,7 +480,11 @@
     <div class="card">
       <h2 style="font-size:17px; margin:0 0 14px;">Comparación mes vs. mes anterior</h2>
       <div class="stat-grid" id="stat-grid"></div>
-      <canvas id="chart" height="220"></canvas>
+      <div class="chart-scroll" id="chart-scroll">
+        <div class="chart-scroll-inner" id="chart-scroll-inner">
+          <canvas id="chart"></canvas>
+        </div>
+      </div>
       <p id="chart-empty" class="empty" style="display:none;">Registra al menos dos meses de una factura para ver la comparación.</p>
     </div>
     <div class="card">
@@ -1029,9 +1040,11 @@ async function renderAnalisis(){
       const pct = vPrev !== 0 ? (diff/vPrev*100) : 0;
       const cls = pct > 0.5 ? 'up' : (pct < -0.5 ? 'down' : 'flat');
       const arrow = pct > 0.5 ? '↑' : (pct < -0.5 ? '↓' : '→');
+      const diffSign = diff > 0 ? '+' : (diff < 0 ? '-' : '');
       div.innerHTML = `
         <div class="label">${TIPOS[tipo].label}</div>
         <div class="pct ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</div>
+        <div class="diff-cop ${cls}">${diffSign}$${fmtMoney(Math.abs(diff))}</div>
         <div class="amt">$${fmtMoney(vLast)} vs $${fmtMoney(vPrev)}</div>`;
     }
     statGrid.appendChild(div);
@@ -1104,6 +1117,17 @@ async function renderAnalisis(){
   canvas.style.display = 'block';
   emptyMsg.style.display = 'none';
 
+  // ancho dinámico: ~80px por mes, para poder deslizar y ver meses anteriores
+  const chartInner = document.getElementById('chart-scroll-inner');
+  const scrollBox = document.getElementById('chart-scroll');
+  const minWidth = Math.max(scrollBox.clientWidth || 0, allMonthsReg.length * 80);
+  chartInner.style.width = minWidth + 'px';
+  // al abrir la pestaña, ubicar el scroll al final (meses más recientes)
+  requestAnimationFrame(()=>{ scrollBox.scrollLeft = scrollBox.scrollWidth; });
+
+  // agua y gas comparten eje (montos parecidos); energía usa un eje propio
+  // a la derecha porque su monto es varias veces mayor y, si comparte eje,
+  // aplasta visualmente las líneas de agua y gas contra la parte inferior
   const datasets = Object.keys(TIPOS).map(tipo=>({
     label: TIPOS[tipo].label,
     data: allMonthsReg.map(m => byTipoReg[tipo][m] ?? null),
@@ -1111,7 +1135,8 @@ async function renderAnalisis(){
     backgroundColor: TIPOS[tipo].color,
     spanGaps: true,
     tension: 0.25,
-    pointRadius: 3
+    pointRadius: 3,
+    yAxisID: tipo === 'energia' ? 'y1' : 'y'
   }));
 
   if(chartInstance) chartInstance.destroy();
@@ -1123,11 +1148,24 @@ async function renderAnalisis(){
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 12 } } }
       },
       scales: {
-        y: { beginAtZero: true, ticks: { callback: v => '$'+v } }
+        y: {
+          beginAtZero: true,
+          position: 'left',
+          title: { display: true, text: 'Agua / Gas' },
+          ticks: { callback: v => '$'+v }
+        },
+        y1: {
+          beginAtZero: true,
+          position: 'right',
+          title: { display: true, text: 'Energía' },
+          grid: { drawOnChartArea: false },
+          ticks: { callback: v => '$'+v }
+        }
       }
     }
   });
