@@ -1073,6 +1073,8 @@ async function renderAnalisis(){
   const consumoByTipo = { agua:{}, gas:{}, energia:{} };
   facturas.filter(f=>f.consumo!=null && !isNaN(f.consumo)).forEach(f=>{
     const mk = monthKey(fechaAnalisis(f));
+    if(!mk) return;
+    if(!consumoByTipo[f.tipo][mk]) consumoByTipo[f.tipo][mk] = [];
     consumoByTipo[f.tipo][mk].push(f.consumo);
   });
 
