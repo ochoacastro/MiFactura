@@ -1017,31 +1017,19 @@ async function renderAnalisis(){
   const consumoEmpty = document.getElementById('consumo-empty');
   const listaTotales = document.getElementById('lista-totales-mensuales');
 
-  // las facturas pendientes (sin fechaPago) aún no tienen una fecha de pago
-  // real; como históricamente las 3 (agua/gas/energía) se pagan juntas el
-  // mismo día, se les asigna a TODAS el mismo mes de referencia: el del
-  // vencimiento más lejano entre las pendientes, en vez de que cada una use
-  // su propio vencimiento (lo que las separaba en meses distintos)
-  const pendientes = facturas.filter(f=>!f.fechaPago && f.fechaVencimiento);
-  const mesPendientes = pendientes.length
-    ? pendientes.map(f=>f.fechaVencimiento).sort().slice(-1)[0]
-    : null;
-  function fechaAnalisis(f){
-    return f.fechaPago || mesPendientes;
-  }
-
-  // group by tipo -> mes -> total, usando TODAS las facturas registradas
-  // (pendientes + pagadas), agrupadas por fecha de pago real; si aún no se
-  // ha pagado, se usa el mes compartido de pendientes calculado arriba
+  // el análisis solo cuenta facturas con fecha de pago real registrada;
+  // las que siguen pendientes no aparecen en ningún mes hasta que se
+  // registre su pago (evita mostrar meses que aún no se han pagado, como
+  // un "Oct 2026" fabricado a partir del vencimiento)
   const byTipoReg = { agua:{}, gas:{}, energia:{} };
-  facturas.forEach(f=>{
-    const mk = monthKey(fechaAnalisis(f));
+  facturas.filter(f=>f.fechaPago).forEach(f=>{
+    const mk = monthKey(f.fechaPago);
     if(!mk) return;
     byTipoReg[f.tipo][mk] = (byTipoReg[f.tipo][mk] || 0) + f.valor;
   });
 
-  // meses según fecha de pago (o vencimiento si sigue pendiente): se usan
-  // para tarjetas, gráfica, consumo promedio y total mensual
+  // meses según fecha de pago real: se usan para tarjetas, gráfica,
+  // consumo promedio y total mensual
   const allMonthsReg = [...new Set(Object.values(byTipoReg).flatMap(o=>Object.keys(o)))].sort();
 
   // stat cards: última factura registrada vs. la anterior registrada, por tipo
@@ -1076,8 +1064,8 @@ async function renderAnalisis(){
 
   // ---- Consumo promedio (últimos 6 meses) ----
   const consumoByTipo = { agua:{}, gas:{}, energia:{} };
-  facturas.filter(f=>f.consumo!=null && !isNaN(f.consumo)).forEach(f=>{
-    const mk = monthKey(fechaAnalisis(f));
+  facturas.filter(f=>f.fechaPago && f.consumo!=null && !isNaN(f.consumo)).forEach(f=>{
+    const mk = monthKey(f.fechaPago);
     if(!mk) return;
     if(!consumoByTipo[f.tipo][mk]) consumoByTipo[f.tipo][mk] = [];
     consumoByTipo[f.tipo][mk].push(f.consumo);
@@ -1111,9 +1099,9 @@ async function renderAnalisis(){
   });
   consumoEmpty.style.display = hayConsumo ? 'none' : 'block';
 
-  // ---- Total mensual de los 3 servicios (pendientes + pagadas) ----
+  // ---- Total mensual de los 3 servicios (solo facturas ya pagadas) ----
   if(allMonthsReg.length === 0){
-    listaTotales.innerHTML = '<p class="empty">Aún no hay facturas registradas.</p>';
+    listaTotales.innerHTML = '<p class="empty">Aún no hay pagos registrados.</p>';
   }else{
     listaTotales.innerHTML = '';
     [...allMonthsReg].reverse().forEach(mk=>{
