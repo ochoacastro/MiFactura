@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Facturas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg:#EEF1F0;
+    --panel:#FFFFFF;
+    --ink:#1B2521;
+    --ink-soft:#5B6864;
+    --line:#D8DED9;
+    --agua:#1D6FA5;
+    --agua-bg:#E4F0F8;
+    --gas:#C2540C;
+    --gas-bg:#FBE9DE;
+    --energia:#A8790A;
+    --energia-bg:#FBF1DA;
+    --up:#B23B3B;
+    --down:#2E7D4F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:640px;margin:0 auto;padding:18px 14px 40px;}
+
+  header.hero{
+    padding:6px 4px 20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:16px;
+  }
+  header.hero h1{
+    font-size:26px;
+    letter-spacing:-0.01em;
+    margin:0 0 4px;
+    font-weight:700;
+  }
+  header.hero p{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+
+  .storage-banner{
+    background:#FBF1DA;
+    border:1px solid #E7CE8F;
+    color:#6B5417;
+    font-size:12.5px;
+    padding:9px 12px;
+    border-radius:9px;
+    margin-bottom:14px;
+    line-height:1.4;
+  }
+
+  nav.tabs{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding-bottom:2px;
+    margin-bottom:18px;
+    scrollbar-width:none;
+  }
+  nav.tabs::-webkit-scrollbar{display:none;}
+  nav.tabs button{
+    flex:0 0 auto;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--ink-soft);
+    padding:9px 14px;
+    border-radius:10px;
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  nav.tabs button.active{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+    margin-bottom:14px;
+  }
+
+  .type-header{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;}
+  .type-header h2{font-size:17px;margin:0;font-weight:700;}
+  .type-header span.tag{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-left:auto;
+  }
+
+  label{
+    display:block;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:12px 0 5px;
+    font-weight:600;
+  }
+  label:first-of-type{margin-top:0;}
+  input{
+    width:100%;
+    padding:11px 12px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    font-size:15px;
+    background:#FCFDFC;
+    color:var(--ink);
+  }
+  input:focus{outline:2px solid var(--ink); outline-offset:1px;}
+
+  .row2{display:flex; gap:10px;}
+  .row2 > div{flex:1;}
+
+  button.primary{
+    margin-top:16px;
+    width:100%;
+    padding:13px;
+    border:none;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:700;
+    color:#fff;
+    cursor:pointer;
+  }
+
+  .msg{
+    font-size:13px;
+    margin-top:10px;
+    padding:9px 11px;
+    border-radius:8px;
+    display:none;
+  }
+  .msg.ok{background:#E6F3EB;color:var(--down);display:block;}
+
+  /* Pagos registrados */
+  .filter-row{display:flex; gap:6px; margin-bottom:12px;}
+  .filter-row button{
+    flex:1;
+    padding:8px 4px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    border-radius:8px;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .filter-row button.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+  .payment-item{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:10px;
+    position:relative;
+  }
+  .payment-item .top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:6px;
+  }
+  .payment-item .top strong{font-size:15px;}
+  .payment-item .value{font-size:17px; font-weight:700;}
+  .payment-item .meta{font-size:12.5px; color:var(--ink-soft); line-height:1.5;}
+  .payment-item .del{
+    position:absolute;
+    top:10px;
+    right:12px;
+    border:none;
+    background:none;
+    color:var(--ink-soft);
+    font-size:12px;
+    cursor:pointer;
+    text-decoration:underline;
+  }
+  .empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:14px;
+    padding:36px 10px;
+  }
+
+  .field-row{display:flex; align-items:stretch; gap:8px;}
+  .field-row input{flex:1;}
+  .copy-btn{
+    flex:0 0 auto;
+    border:1px solid var(--line);
+    background:#FCFDFC;
+    color:var(--ink);
+    font-size:12px;
+    font-weight:700;
+    padding:0 12px;
+    border-radius:9px;
+    cursor:pointer;
+  }
+  .copy-btn.copied{background:var(--down); color:#fff; border-color:var(--down);}
+
+  .pending-item{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+  .pending-item .header-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    cursor:pointer;
+  }
+  .pending-item .header-row strong{font-size:15px;}
+  .pending-item .value{font-size:17px; font-weight:700;}
+  .pending-item .meta{font-size:12.5px; color:var(--ink-soft); margin-top:4px;}
+  .pending-item .meta .overdue{color:var(--up); font-weight:700;}
+
+  .pending-detail{
+    display:none;
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px dashed var(--line);
+  }
+  .pending-detail.open{display:block;}
+  .detail-line{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:7px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .detail-line:last-of-type{border-bottom:none;}
+  .detail-line .dl-label{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    font-weight:600;
+    flex:0 0 92px;
+  }
+  .detail-line .dl-value{
+    font-size:13.5px;
+    font-weight:600;
+    flex:1;
+    word-break:break-all;
+  }
+  .pay-row{display:flex; gap:8px; margin-top:12px;}
+  .pay-row input{flex:1;}
+  .pay-row button{
+    flex:0 0 auto;
+    white-space:nowrap;
+    border:none;
+    border-radius:9px;
+    padding:0 16px;
+    font-weight:700;
+    font-size:13.5px;
+    color:#fff;
+    cursor:pointer;
+  }
+
+  /* Analisis */
+  .stat-grid{display:flex; gap:10px; margin-bottom:16px;}
+  .stat{
+    flex:1;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 10px;
+    text-align:center;
+  }
+  .stat .label{font-size:11.5px; color:var(--ink-soft); font-weight:600; margin-bottom:6px;}
+  .stat .pct{font-size:18px; font-weight:800;}
+  .stat .amt{font-size:11.5px; color:var(--ink-soft); margin-top:4px;}
+  .pct.up{color:var(--up);}
+  .pct.down{color:var(--down);}
+  .pct.flat{color:var(--ink-soft);}
+
+  canvas{max-width:100%;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="hero">
+    <h1>Control de facturas</h1>
+    <p>Agua, gas y energía — registro y análisis mensual</p>
+  </header>
+
+  <div id="storage-banner" class="storage-banner" style="display:none;"></div>
+
+  <nav class="tabs">
+    <button data-tab="agua" class="active">Agua</button>
+    <button data-tab="gas">Gas</button>
+    <button data-tab="energia">Energía</button>
+    <button data-tab="pendientes">Facturas pendientes</button>
+    <button data-tab="pagos">Pagos registrados</button>
+    <button data-tab="analisis">Análisis</button>
+  </nav>
+
+  <!-- AGUA -->
+  <section class="panel active" id="panel-agua">
+    <div class="card">
+      <div class="type-header">
+        <span class="dot" style="background:var(--agua)"></span>
+        <h2>Factura de agua</h2>
+        <span class="tag">Nuevo registro</span>
+      </div>
+      <form data-tipo="agua" class="invoice-form">
+        <label>Código de usuario</label>
+        <div class="field-row">
+          <input type="text" name="codigoUsuario" required placeholder="Ej. 0012345">
+          <button type="button" class="copy-btn" data-copy-input="codigoUsuario">Copiar</button>
+        </div>
+        <label>Enlace para pagar la factura</label>
+        <div class="field-row">
+          <input type="text" name="enlacePago" placeholder="https://...">
+          <button type="button" class="copy-btn" data-copy-input="enlacePago">Copiar</button>
+        </div>
+        <label>Código de pago electrónico</label>
+        <div class="field-row">
+          <input type="text" name="codigoPago" required placeholder="Ej. 987654321">
+          <button type="button" class="copy-btn" data-copy-input="codigoPago">Copiar</button>
+        </div>
+        <div class="row2">
+          <div>
+            <label>Valor a pagar</label>
+            <input type="number" name="valor" step="0.01" min="0" required placeholder="0.00">
+          </div>
+          <div>
+            <label>Consumo (m³)</label>
+            <input type="number" name="consumo" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+        <label>Fecha de vencimiento</label>
+        <input type="date" name="fechaVencimiento" required>
+        <button type="submit" class="primary" style="background:var(--agua)">Guardar factura</button>
+        <div class="msg ok"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- GAS -->
+  <section class="panel" id="panel-gas">
+    <div class="card">
+      <div class="type-header">
+        <span class="dot" style="background:var(--gas)"></span>
+        <h2>Factura de gas</h2>
+        <span class="tag">Nuevo registro</span>
+      </div>
+      <form data-tipo="gas" class="invoice-form">
+        <label>Código de usuario</label>
+        <div class="field-row">
+          <input type="text" name="codigoUsuario" required placeholder="Ej. 0012345">
+          <button type="button" class="copy-btn" data-copy-input="codigoUsuario">Copiar</button>
+        </div>
+        <label>Enlace para pagar la factura</label>
+        <div class="field-row">
+          <input type="text" name="enlacePago" placeholder="https://...">
+          <button type="button" class="copy-btn" data-copy-input="enlacePago">Copiar</button>
+        </div>
+        <label>Código de pago electrónico</label>
+        <div class="field-row">
+          <input type="text" name="codigoPago" required placeholder="Ej. 987654321">
+          <button type="button" class="copy-btn" data-copy-input="codigoPago">Copiar</button>
+        </div>
+        <div class="row2">
+          <div>
+            <label>Valor a pagar</label>
+            <input type="number" name="valor" step="0.01" min="0" required placeholder="0.00">
+          </div>
+          <div>
+            <label>Consumo (m³)</label>
+            <input type="number" name="consumo" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+        <label>Fecha de vencimiento</label>
+        <input type="date" name="fechaVencimiento" required>
+        <button type="submit" class="primary" style="background:var(--gas)">Guardar factura</button>
+        <div class="msg ok"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ENERGIA -->
+  <section class="panel" id="panel-energia">
+    <div class="card">
+      <div class="type-header">
+        <span class="dot" style="background:var(--energia)"></span>
+        <h2>Factura de energía</h2>
+        <span class="tag">Nuevo registro</span>
+      </div>
+      <form data-tipo="energia" class="invoice-form">
+        <label>Código de usuario</label>
+        <div class="field-row">
+          <input type="text" name="codigoUsuario" required placeholder="Ej. 0012345">
+          <button type="button" class="copy-btn" data-copy-input="codigoUsuario">Copiar</button>
+        </div>
+        <label>Enlace para pagar la factura</label>
+        <div class="field-row">
+          <input type="text" name="enlacePago" placeholder="https://...">
+          <button type="button" class="copy-btn" data-copy-input="enlacePago">Copiar</button>
+        </div>
+        <label>Código de pago electrónico</label>
+        <div class="field-row">
+          <input type="text" name="codigoPago" required placeholder="Ej. 987654321">
+          <button type="button" class="copy-btn" data-copy-input="codigoPago">Copiar</button>
+        </div>
+        <div class="row2">
+          <div>
+            <label>Valor a pagar</label>
+            <input type="number" name="valor" step="0.01" min="0" required placeholder="0.00">
+          </div>
+          <div>
+            <label>Consumo (Kwh)</label>
+            <input type="number" name="consumo" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+        <label>Fecha de vencimiento</label>
+        <input type="date" name="fechaVencimiento" required>
+        <button type="submit" class="primary" style="background:var(--energia)">Guardar factura</button>
+        <div class="msg ok"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- PENDIENTES -->
+  <section class="panel" id="panel-pendientes">
+    <div class="card">
+      <div class="filter-row" id="filtro-pendientes">
+        <button data-filter="todas" class="active">Todas</button>
+        <button data-filter="agua">Agua</button>
+        <button data-filter="gas">Gas</button>
+        <button data-filter="energia">Energía</button>
+      </div>
+      <div id="lista-pendientes"></div>
+    </div>
+  </section>
+
+  <!-- PAGOS -->
+  <section class="panel" id="panel-pagos">
+    <div class="card">
+      <div class="filter-row" id="filtro-pagos">
+        <button data-filter="todas" class="active">Todas</button>
+        <button data-filter="agua">Agua</button>
+        <button data-filter="gas">Gas</button>
+        <button data-filter="energia">Energía</button>
+      </div>
+      <div id="lista-pagos"></div>
+    </div>
+  </section>
+
+  <!-- ANALISIS -->
+  <section class="panel" id="panel-analisis">
+    <div class="card">
+      <h2 style="font-size:17px; margin:0 0 14px;">Comparación mes vs. mes anterior</h2>
+      <div class="stat-grid" id="stat-grid"></div>
+      <canvas id="chart" height="220"></canvas>
+      <p id="chart-empty" class="empty" style="display:none;">Registra al menos dos meses de una factura para ver la comparación.</p>
+    </div>
+    <div class="card">
+      <h2 style="font-size:17px; margin:0 0 14px;">Consumo promedio (últimos 6 meses)</h2>
+      <div class="stat-grid" id="stat-grid-consumo"></div>
+      <p id="consumo-empty" class="empty" style="display:none;">Registra el consumo en tus facturas para ver el promedio.</p>
+    </div>
+    <div class="card">
+      <h2 style="font-size:17px; margin:0 0 14px;">Total mensual (agua + gas + energía)</h2>
+      <div id="lista-totales-mensuales"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const TIPOS = {
+  agua:    { label: "Agua",    color: "#1D6FA5", unidad: "m³" },
+  gas:     { label: "Gas",     color: "#C2540C", unidad: "m³" },
+  energia: { label: "Energía", color: "#A8790A", unidad: "Kwh" }
+};
+
+let chartInstance = null;
+
+function todayISO(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+function fmtMoney(v){
+  return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// ---------- Tabs ----------
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab === 'pendientes') renderPendientes();
+    if(btn.dataset.tab === 'pagos') renderPagos();
+    if(btn.dataset.tab === 'analisis') renderAnalisis();
+  });
+});
+
+// ---------- Firebase ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyCfElmA3getirNjUcw2eOMM6DoaHGeUFGo",
+  authDomain: "facturas-e0130.firebaseapp.com",
+  databaseURL: "https://facturas-e0130-default-rtdb.firebaseio.com",
+  projectId: "facturas-e0130",
+  storageBucket: "facturas-e0130.firebasestorage.app",
+  messagingSenderId: "998817422979",
+  appId: "1:998817422979:web:a560b70c0b0ef10ea0c5b6"
+};
+
+let db = null;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+}catch(e){
+  console.warn('No se pudo inicializar Firebase.', e);
+}
+
+// ---------- Storage helpers ----------
+// Guarda en Firebase Realtime Database (sincroniza entre dispositivos).
+// Si Firebase no está disponible (sin conexión, script bloqueado, etc.)
+// cae a localStorage del navegador: persiste entre sesiones, pero solo
+// en ese navegador/dispositivo, no sincronizado.
+let persistentStorageOk = !!db;
+const LS_PREFIX = 'facturas_app::';
+
+function showStorageBanner(){
+  const b = document.getElementById('storage-banner');
+  if(b){
+    b.textContent = 'Guardando en este navegador (no sincronizado entre dispositivos).';
+    b.style.display = 'block';
+  }
+}
+if(!persistentStorageOk) showStorageBanner();
+
+function lsList(){
+  const keys = [];
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(k && k.startsWith(LS_PREFIX+'factura:')){
+      keys.push(k.slice(LS_PREFIX.length));
+    }
+  }
+  return keys;
+}
+
+// 'factura:ID' -> 'facturas/ID' · 'config:TIPO' -> 'config/TIPO'
+function keyToPath(key){
+  const idx = key.indexOf(':');
+  const prefix = key.slice(0, idx);
+  const resto = key.slice(idx+1);
+  const coleccion = prefix === 'factura' ? 'facturas' : prefix;
+  return coleccion + '/' + resto;
+}
+
+async function storageList(){
+  if(persistentStorageOk){
+    try{
+      const snap = await db.ref('facturas').once('value');
+      if(!snap.exists()) return [];
+      return Object.keys(snap.val()).map(id => 'factura:' + id);
+    }catch(e){
+      console.warn('Firebase no disponible, usando localStorage.', e);
+      persistentStorageOk = false;
+      showStorageBanner();
+    }
+  }
+  return lsList();
+}
+
+async function storageGet(key){
+  if(persistentStorageOk){
+    try{
+      const snap = await db.ref(keyToPath(key)).once('value');
+      return snap.exists() ? JSON.stringify(snap.val()) : null;
+    }catch(e){
+      persistentStorageOk = false;
+      showStorageBanner();
+    }
+  }
+  return localStorage.getItem(LS_PREFIX+key);
+}
+
+async function storageSet(key, value){
+  if(persistentStorageOk){
+    try{
+      await db.ref(keyToPath(key)).set(JSON.parse(value));
+      return;
+    }catch(e){
+      console.warn('Firebase no disponible, usando localStorage.', e);
+      persistentStorageOk = false;
+      showStorageBanner();
+    }
+  }
+  localStorage.setItem(LS_PREFIX+key, value);
+}
+
+async function storageDelete(key){
+  if(persistentStorageOk){
+    try{
+      await db.ref(keyToPath(key)).remove();
+      return;
+    }catch(e){
+      persistentStorageOk = false;
+      showStorageBanner();
+    }
+  }
+  localStorage.removeItem(LS_PREFIX+key);
+}
+
+async function getAllFacturas(){
+  try{
+    const keys = await storageList();
+    if(!keys || keys.length === 0) return [];
+    const items = [];
+    for(const key of keys){
+      try{
+        const value = await storageGet(key);
+        if(value){
+          items.push(JSON.parse(value));
+        }
+      }catch(e){ /* registro dañado o ausente, se omite */ }
+    }
+    return items.sort((a,b)=> (b.fechaPago||'').localeCompare(a.fechaPago||''));
+  }catch(e){
+    console.error('Error leyendo facturas', e);
+    return [];
+  }
+}
+
+async function saveFactura(f){
+  await storageSet('factura:'+f.id, JSON.stringify(f));
+}
+
+async function deleteFactura(id){
+  await storageDelete('factura:'+id);
+}
+
+// Datos que se recuerdan por tipo de factura (código de usuario y enlace de
+// pago) para no tener que volver a escribirlos cada mes. Se guardan desde
+// que se registra la primera factura de ese tipo, y se actualizan cada vez
+// que se guarda una nueva factura con esos campos.
+async function getConfigTipo(tipo){
+  try{
+    const raw = await storageGet('config:'+tipo);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){
+    return null;
+  }
+}
+
+async function saveConfigTipo(tipo, config){
+  await storageSet('config:'+tipo, JSON.stringify(config));
+}
+
+async function prefillFromConfig(tipo){
+  const cfg = await getConfigTipo(tipo);
+  if(!cfg) return;
+  const form = document.querySelector(`#panel-${tipo} form.invoice-form`);
+  if(!form) return;
+  if(cfg.codigoUsuario) form.querySelector('[name="codigoUsuario"]').value = cfg.codigoUsuario;
+  if(cfg.enlacePago) form.querySelector('[name="enlacePago"]').value = cfg.enlacePago;
+}
+
+// ---------- Copiar al portapapeles ----------
+async function copyToClipboard(text){
+  if(!text) return false;
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch(e){
+    // Respaldo para navegadores sin permiso de portapapeles
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      return true;
+    }catch(e2){
+      return false;
+    }
+  }
+}
+
+function flashCopied(btn){
+  const original = btn.textContent;
+  btn.textContent = 'Copiado';
+  btn.classList.add('copied');
+  setTimeout(()=>{
+    btn.textContent = original;
+    btn.classList.remove('copied');
+  }, 1400);
+}
+
+document.querySelectorAll('.copy-btn[data-copy-input]').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const form = btn.closest('form');
+    const input = form.querySelector(`[name="${btn.dataset.copyInput}"]`);
+    if(input && input.value){
+      const ok = await copyToClipboard(input.value);
+      if(ok) flashCopied(btn);
+    }
+  });
+});
+
+// precargar código de usuario y enlace de pago guardados por tipo
+Object.keys(TIPOS).forEach(tipo => prefillFromConfig(tipo));
+
+// ---------- Formularios ----------
+document.querySelectorAll('.invoice-form').forEach(form=>{
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const tipo = form.dataset.tipo;
+    const data = new FormData(form);
+    const codigoUsuario = data.get('codigoUsuario').trim();
+    const enlacePago = data.get('enlacePago').trim();
+    const consumoRaw = data.get('consumo');
+    const factura = {
+      id: tipo + '_' + Date.now(),
+      tipo,
+      codigoUsuario,
+      enlacePago,
+      codigoPago: data.get('codigoPago').trim(),
+      valor: parseFloat(data.get('valor')),
+      consumo: (consumoRaw !== null && consumoRaw.trim() !== '') ? parseFloat(consumoRaw) : null,
+      fechaVencimiento: data.get('fechaVencimiento'),
+      fechaPago: null,
+      registradoEn: new Date().toISOString()
+    };
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try{
+      await saveFactura(factura);
+      await saveConfigTipo(tipo, { codigoUsuario, enlacePago });
+      const msg = form.querySelector('.msg');
+      msg.textContent = 'Factura guardada como pendiente.';
+      msg.style.display = 'block';
+      setTimeout(()=>{ msg.style.display='none'; }, 2500);
+      form.reset();
+      await prefillFromConfig(tipo);
+    }catch(err){
+      console.error(err);
+      alert('No se pudo guardar el registro. Intenta de nuevo.');
+    }finally{
+      btn.disabled = false;
+    }
+  });
+});
+
+// ---------- Pagos registrados ----------
+let filtroActivo = 'todas';
+
+document.querySelectorAll('#filtro-pagos button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#filtro-pagos button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroActivo = btn.dataset.filter;
+    renderPagos();
+  });
+});
+
+async function renderPagos(){
+  const cont = document.getElementById('lista-pagos');
+  cont.innerHTML = '<p class="empty">Cargando…</p>';
+  const todas = (await getAllFacturas()).filter(f=>f.fechaPago);
+  const facturas = filtroActivo === 'todas' ? todas : todas.filter(f=>f.tipo===filtroActivo);
+
+  if(facturas.length === 0){
+    cont.innerHTML = '<p class="empty">Aún no hay pagos registrados en esta categoría.</p>';
+    return;
+  }
+
+  cont.innerHTML = '';
+  facturas.forEach(f=>{
+    const t = TIPOS[f.tipo];
+    const div = document.createElement('div');
+    div.className = 'payment-item';
+    div.style.borderLeft = `4px solid ${t.color}`;
+    div.innerHTML = `
+      <button class="del" data-id="${f.id}">Eliminar</button>
+      <div class="top">
+        <strong>${t.label}</strong>
+        <span class="value">$${fmtMoney(f.valor)}</span>
+      </div>
+      <div class="meta">
+        Usuario: ${f.codigoUsuario} · Cód. pago: ${f.codigoPago}<br>
+        Vence: ${fmtDate(f.fechaVencimiento)} · Pagado: ${fmtDate(f.fechaPago)}${(f.consumo!=null && !isNaN(f.consumo)) ? ` · Consumo: ${f.consumo} ${t.unidad}` : ''}
+      </div>
+    `;
+    cont.appendChild(div);
+  });
+
+  cont.querySelectorAll('.del').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      if(confirm('¿Eliminar este registro de pago?')){
+        await deleteFactura(b.dataset.id);
+        renderPagos();
+      }
+    });
+  });
+}
+
+// ---------- Facturas pendientes ----------
+let filtroPendientes = 'todas';
+
+document.querySelectorAll('#filtro-pendientes button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#filtro-pendientes button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroPendientes = btn.dataset.filter;
+    renderPendientes();
+  });
+});
+
+function isOverdue(fechaVencimiento){
+  if(!fechaVencimiento) return false;
+  return fechaVencimiento < todayISO();
+}
+
+async function renderPendientes(){
+  const cont = document.getElementById('lista-pendientes');
+  cont.innerHTML = '<p class="empty">Cargando…</p>';
+  const todas = (await getAllFacturas()).filter(f=>!f.fechaPago);
+  const facturas = filtroPendientes === 'todas' ? todas : todas.filter(f=>f.tipo===filtroPendientes);
+
+  // ordenar por fecha de vencimiento más próxima primero
+  facturas.sort((a,b)=> (a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||''));
+
+  if(facturas.length === 0){
+    cont.innerHTML = '<p class="empty">No hay facturas pendientes por pagar en esta categoría.</p>';
+    return;
+  }
+
+  cont.innerHTML = '';
+  facturas.forEach(f=>{
+    const t = TIPOS[f.tipo];
+    const vencida = isOverdue(f.fechaVencimiento);
+    const div = document.createElement('div');
+    div.className = 'pending-item';
+    div.style.borderLeft = `4px solid ${t.color}`;
+    div.innerHTML = `
+      <div class="header-row" data-toggle="${f.id}">
+        <div>
+          <strong>${t.label}</strong>
+          <div class="meta">
+            Vence: <span class="${vencida ? 'overdue' : ''}">${fmtDate(f.fechaVencimiento)}${vencida ? ' · vencida' : ''}</span>
+          </div>
+        </div>
+        <span class="value">$${fmtMoney(f.valor)}</span>
+      </div>
+      <div class="pending-detail" id="detail-${f.id}">
+        <div class="detail-line">
+          <span class="dl-label">Usuario</span>
+          <span class="dl-value">${f.codigoUsuario || '—'}</span>
+          <button type="button" class="copy-btn" data-copy-text="${(f.codigoUsuario||'').replace(/"/g,'&quot;')}">Copiar</button>
+        </div>
+        <div class="detail-line">
+          <span class="dl-label">Enlace de pago</span>
+          <span class="dl-value">${f.enlacePago ? `<a href="${f.enlacePago}" target="_blank" rel="noopener">${f.enlacePago}</a>` : '—'}</span>
+          <button type="button" class="copy-btn" data-copy-text="${(f.enlacePago||'').replace(/"/g,'&quot;')}">Copiar</button>
+        </div>
+        <div class="detail-line">
+          <span class="dl-label">Cód. pago</span>
+          <span class="dl-value">${f.codigoPago || '—'}</span>
+          <button type="button" class="copy-btn" data-copy-text="${(f.codigoPago||'').replace(/"/g,'&quot;')}">Copiar</button>
+        </div>
+        ${(f.consumo!=null && !isNaN(f.consumo)) ? `
+        <div class="detail-line">
+          <span class="dl-label">Consumo</span>
+          <span class="dl-value">${f.consumo} ${t.unidad}</span>
+        </div>` : ''}
+        <div class="pay-row">
+          <input type="date" class="fecha-pago-input" value="${todayISO()}">
+          <button type="button" class="btn-registrar-pago" data-id="${f.id}" style="background:${t.color}">Registrar pago</button>
+        </div>
+        <button type="button" class="del" data-id="${f.id}" style="position:static; margin-top:10px;">Eliminar factura</button>
+      </div>
+    `;
+    cont.appendChild(div);
+  });
+
+  // expandir/contraer detalle
+  cont.querySelectorAll('.header-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const detail = document.getElementById('detail-'+row.dataset.toggle);
+      detail.classList.toggle('open');
+    });
+  });
+
+  // copiar campos individuales dentro del detalle
+  cont.querySelectorAll('.copy-btn[data-copy-text]').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const ok = await copyToClipboard(btn.dataset.copyText);
+      if(ok) flashCopied(btn);
+    });
+  });
+
+  // registrar el pago de una factura pendiente
+  cont.querySelectorAll('.btn-registrar-pago').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const detail = document.getElementById('detail-'+id);
+      const fechaPago = detail.querySelector('.fecha-pago-input').value;
+      if(!fechaPago){
+        alert('Selecciona la fecha de pago.');
+        return;
+      }
+      btn.disabled = true;
+      try{
+        const factura = facturas.find(f=>f.id===id);
+        factura.fechaPago = fechaPago;
+        await saveFactura(factura);
+        renderPendientes();
+      }catch(err){
+        console.error(err);
+        alert('No se pudo registrar el pago. Intenta de nuevo.');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  // eliminar una factura pendiente
+  cont.querySelectorAll('.pending-detail > .del').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      if(confirm('¿Eliminar esta factura pendiente?')){
+        await deleteFactura(btn.dataset.id);
+        renderPendientes();
+      }
+    });
+  });
+}
+
+// ---------- Análisis ----------
+function monthKey(iso){
+  return iso ? iso.slice(0,7) : null; // YYYY-MM
+}
+
+function monthLabel(key){
+  const [y,m] = key.split('-');
+  const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return names[parseInt(m,10)-1] + ' ' + y;
+}
+
+async function renderAnalisis(){
+  const facturas = await getAllFacturas();
+  const statGrid = document.getElementById('stat-grid');
+  const emptyMsg = document.getElementById('chart-empty');
+  const canvas = document.getElementById('chart');
+  const statGridConsumo = document.getElementById('stat-grid-consumo');
+  const consumoEmpty = document.getElementById('consumo-empty');
+  const listaTotales = document.getElementById('lista-totales-mensuales');
+
+  // group by tipo -> mes -> total (solo facturas ya pagadas)
+  const byTipo = { agua:{}, gas:{}, energia:{} };
+  facturas.filter(f=>f.fechaPago).forEach(f=>{
+    const mk = monthKey(f.fechaPago);
+    if(!mk) return;
+    byTipo[f.tipo][mk] = (byTipo[f.tipo][mk] || 0) + f.valor;
+  });
+
+  // all months across all types, sorted
+  const allMonths = [...new Set(Object.values(byTipo).flatMap(o=>Object.keys(o)))].sort();
+
+  // stat cards: latest vs previous month per tipo
+  statGrid.innerHTML = '';
+  Object.keys(TIPOS).forEach(tipo=>{
+    const months = Object.keys(byTipo[tipo]).sort();
+    const div = document.createElement('div');
+    div.className = 'stat';
+    if(months.length < 2){
+      div.innerHTML = `
+        <div class="label">${TIPOS[tipo].label}</div>
+        <div class="pct flat">—</div>
+        <div class="amt">Faltan datos</div>`;
+    }else{
+      const last = months[months.length-1];
+      const prev = months[months.length-2];
+      const vLast = byTipo[tipo][last];
+      const vPrev = byTipo[tipo][prev];
+      const diff = vLast - vPrev;
+      const pct = vPrev !== 0 ? (diff/vPrev*100) : 0;
+      const cls = pct > 0.5 ? 'up' : (pct < -0.5 ? 'down' : 'flat');
+      const arrow = pct > 0.5 ? '↑' : (pct < -0.5 ? '↓' : '→');
+      div.innerHTML = `
+        <div class="label">${TIPOS[tipo].label}</div>
+        <div class="pct ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</div>
+        <div class="amt">$${fmtMoney(vLast)} vs $${fmtMoney(vPrev)}</div>`;
+    }
+    statGrid.appendChild(div);
+  });
+
+  // ---- Consumo promedio (últimos 6 meses) ----
+  const consumoByTipo = { agua:{}, gas:{}, energia:{} };
+  facturas.filter(f=>f.fechaPago && f.consumo!=null && !isNaN(f.consumo)).forEach(f=>{
+    const mk = monthKey(f.fechaPago);
+    if(!mk) return;
+    if(!consumoByTipo[f.tipo][mk]) consumoByTipo[f.tipo][mk] = [];
+    consumoByTipo[f.tipo][mk].push(f.consumo);
+  });
+
+  statGridConsumo.innerHTML = '';
+  let hayConsumo = false;
+  Object.keys(TIPOS).forEach(tipo=>{
+    const meses = Object.keys(consumoByTipo[tipo]).sort();
+    const div = document.createElement('div');
+    div.className = 'stat';
+    if(meses.length === 0){
+      div.innerHTML = `
+        <div class="label">${TIPOS[tipo].label}</div>
+        <div class="pct flat">—</div>
+        <div class="amt">Sin datos</div>`;
+    }else{
+      hayConsumo = true;
+      const ultimos6 = meses.slice(-6);
+      const promediosPorMes = ultimos6.map(mk=>{
+        const vals = consumoByTipo[tipo][mk];
+        return vals.reduce((a,b)=>a+b,0) / vals.length;
+      });
+      const promedio = promediosPorMes.reduce((a,b)=>a+b,0) / promediosPorMes.length;
+      div.innerHTML = `
+        <div class="label">${TIPOS[tipo].label}</div>
+        <div class="pct flat">${promedio.toFixed(1)}</div>
+        <div class="amt">${TIPOS[tipo].unidad} · ${ultimos6.length} ${ultimos6.length===1?'mes':'meses'}</div>`;
+    }
+    statGridConsumo.appendChild(div);
+  });
+  consumoEmpty.style.display = hayConsumo ? 'none' : 'block';
+
+  // ---- Total mensual de los 3 servicios ----
+  if(allMonths.length === 0){
+    listaTotales.innerHTML = '<p class="empty">Aún no hay pagos registrados.</p>';
+  }else{
+    listaTotales.innerHTML = '';
+    [...allMonths].reverse().forEach(mk=>{
+      const total = Object.keys(TIPOS).reduce((sum,tipo)=> sum + (byTipo[tipo][mk]||0), 0);
+      const div = document.createElement('div');
+      div.className = 'payment-item';
+      div.innerHTML = `
+        <div class="top">
+          <strong>${monthLabel(mk)}</strong>
+          <span class="value">$${fmtMoney(total)}</span>
+        </div>
+        <div class="meta">
+          Agua: $${fmtMoney(byTipo.agua[mk]||0)} · Gas: $${fmtMoney(byTipo.gas[mk]||0)} · Energía: $${fmtMoney(byTipo.energia[mk]||0)}
+        </div>`;
+      listaTotales.appendChild(div);
+    });
+  }
+
+  if(allMonths.length < 2){
+    canvas.style.display = 'none';
+    emptyMsg.style.display = 'block';
+    if(chartInstance){ chartInstance.destroy(); chartInstance = null; }
+    return;
+  }
+  canvas.style.display = 'block';
+  emptyMsg.style.display = 'none';
+
+  const datasets = Object.keys(TIPOS).map(tipo=>({
+    label: TIPOS[tipo].label,
+    data: allMonths.map(m => byTipo[tipo][m] ?? null),
+    borderColor: TIPOS[tipo].color,
+    backgroundColor: TIPOS[tipo].color,
+    spanGaps: true,
+    tension: 0.25,
+    pointRadius: 3
+  }));
+
+  if(chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: allMonths.map(monthLabel),
+      datasets
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 12 } } }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => '$'+v } }
+      }
+    }
+  });
+}
+
+// initial render
+renderPagos();
+</script>
+</body>
+</html>
