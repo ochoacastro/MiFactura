@@ -986,7 +986,16 @@ async function renderAnalisis(){
   const consumoEmpty = document.getElementById('consumo-empty');
   const listaTotales = document.getElementById('lista-totales-mensuales');
 
-  // group by tipo -> mes -> total (solo facturas ya pagadas)
+  // group by tipo -> mes -> total, usando TODAS las facturas registradas
+  // (sin importar si ya se pagaron), para la comparación y la gráfica
+  const byTipoReg = { agua:{}, gas:{}, energia:{} };
+  facturas.forEach(f=>{
+    const mk = monthKey(f.registradoEn);
+    if(!mk) return;
+    byTipoReg[f.tipo][mk] = (byTipoReg[f.tipo][mk] || 0) + f.valor;
+  });
+
+  // group by tipo -> mes -> total (solo facturas ya pagadas, para el total mensual)
   const byTipo = { agua:{}, gas:{}, energia:{} };
   facturas.filter(f=>f.fechaPago).forEach(f=>{
     const mk = monthKey(f.fechaPago);
@@ -994,13 +1003,15 @@ async function renderAnalisis(){
     byTipo[f.tipo][mk] = (byTipo[f.tipo][mk] || 0) + f.valor;
   });
 
-  // all months across all types, sorted
+  // meses según fecha de registro (para tarjetas y gráfica)
+  const allMonthsReg = [...new Set(Object.values(byTipoReg).flatMap(o=>Object.keys(o)))].sort();
+  // meses según fecha de pago (para el total mensual)
   const allMonths = [...new Set(Object.values(byTipo).flatMap(o=>Object.keys(o)))].sort();
 
-  // stat cards: latest vs previous month per tipo
+  // stat cards: última factura registrada vs. la anterior registrada, por tipo
   statGrid.innerHTML = '';
   Object.keys(TIPOS).forEach(tipo=>{
-    const months = Object.keys(byTipo[tipo]).sort();
+    const months = Object.keys(byTipoReg[tipo]).sort();
     const div = document.createElement('div');
     div.className = 'stat';
     if(months.length < 2){
@@ -1011,8 +1022,8 @@ async function renderAnalisis(){
     }else{
       const last = months[months.length-1];
       const prev = months[months.length-2];
-      const vLast = byTipo[tipo][last];
-      const vPrev = byTipo[tipo][prev];
+      const vLast = byTipoReg[tipo][last];
+      const vPrev = byTipoReg[tipo][prev];
       const diff = vLast - vPrev;
       const pct = vPrev !== 0 ? (diff/vPrev*100) : 0;
       const cls = pct > 0.5 ? 'up' : (pct < -0.5 ? 'down' : 'flat');
@@ -1083,7 +1094,7 @@ async function renderAnalisis(){
     });
   }
 
-  if(allMonths.length < 2){
+  if(allMonthsReg.length < 2){
     canvas.style.display = 'none';
     emptyMsg.style.display = 'block';
     if(chartInstance){ chartInstance.destroy(); chartInstance = null; }
@@ -1094,7 +1105,7 @@ async function renderAnalisis(){
 
   const datasets = Object.keys(TIPOS).map(tipo=>({
     label: TIPOS[tipo].label,
-    data: allMonths.map(m => byTipo[tipo][m] ?? null),
+    data: allMonthsReg.map(m => byTipoReg[tipo][m] ?? null),
     borderColor: TIPOS[tipo].color,
     backgroundColor: TIPOS[tipo].color,
     spanGaps: true,
@@ -1106,7 +1117,7 @@ async function renderAnalisis(){
   chartInstance = new Chart(canvas, {
     type: 'line',
     data: {
-      labels: allMonths.map(monthLabel),
+      labels: allMonthsReg.map(monthLabel),
       datasets
     },
     options: {
