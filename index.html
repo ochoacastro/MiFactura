@@ -298,9 +298,33 @@
   .pct.down{color:var(--down);}
   .pct.flat{color:var(--ink-soft);}
 
-  .chart-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:6px;}
-  .chart-scroll-inner{position:relative; height:260px;}
-  .chart-scroll-inner canvas{width:100% !important; height:100% !important;}
+  .chart-scroll{
+    display:flex;
+    gap:12px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    margin-bottom:6px;
+    scroll-snap-type:x mandatory;
+    padding-bottom:4px;
+  }
+  .chart-pair-card{
+    flex:0 0 auto;
+    width:80%;
+    max-width:320px;
+    scroll-snap-align:start;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px;
+  }
+  .chart-pair-card h3{
+    font-size:13px;
+    margin:0 0 8px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-weight:700;
+  }
+  .chart-pair-card .pair-canvas-wrap{position:relative; height:190px;}
+  .chart-pair-card .pair-canvas-wrap canvas{width:100% !important; height:100% !important;}
   canvas{max-width:100%;}
 </style>
 </head>
@@ -480,11 +504,7 @@
     <div class="card">
       <h2 style="font-size:17px; margin:0 0 14px;">Comparación mes vs. mes anterior</h2>
       <div class="stat-grid" id="stat-grid"></div>
-      <div class="chart-scroll" id="chart-scroll">
-        <div class="chart-scroll-inner" id="chart-scroll-inner">
-          <canvas id="chart"></canvas>
-        </div>
-      </div>
+      <div class="chart-scroll" id="chart-scroll"></div>
       <p id="chart-empty" class="empty" style="display:none;">Registra al menos dos meses de una factura para ver la comparación.</p>
     </div>
     <div class="card">
@@ -507,7 +527,7 @@ const TIPOS = {
   energia: { label: "Energía", color: "#A8790A", unidad: "Kwh" }
 };
 
-let chartInstance = null;
+let chartInstances = [];
 
 function todayISO(){
   const d = new Date();
@@ -992,7 +1012,7 @@ async function renderAnalisis(){
   const facturas = await getAllFacturas();
   const statGrid = document.getElementById('stat-grid');
   const emptyMsg = document.getElementById('chart-empty');
-  const canvas = document.getElementById('chart');
+  const chartContainer = document.getElementById('chart-scroll');
   const statGridConsumo = document.getElementById('stat-grid-consumo');
   const consumoEmpty = document.getElementById('consumo-empty');
   const listaTotales = document.getElementById('lista-totales-mensuales');
@@ -1108,67 +1128,70 @@ async function renderAnalisis(){
     });
   }
 
+  chartInstances.forEach(ch => ch.destroy());
+  chartInstances = [];
+  chartContainer.innerHTML = '';
+
   if(allMonthsReg.length < 2){
-    canvas.style.display = 'none';
+    chartContainer.style.display = 'none';
     emptyMsg.style.display = 'block';
-    if(chartInstance){ chartInstance.destroy(); chartInstance = null; }
     return;
   }
-  canvas.style.display = 'block';
+  chartContainer.style.display = 'flex';
   emptyMsg.style.display = 'none';
 
-  // ancho dinámico: ~80px por mes, para poder deslizar y ver meses anteriores
-  const chartInner = document.getElementById('chart-scroll-inner');
-  const scrollBox = document.getElementById('chart-scroll');
-  const minWidth = Math.max(scrollBox.clientWidth || 0, allMonthsReg.length * 80);
-  chartInner.style.width = minWidth + 'px';
-  // al abrir la pestaña, ubicar el scroll al final (meses más recientes)
-  requestAnimationFrame(()=>{ scrollBox.scrollLeft = scrollBox.scrollWidth; });
+  // una tarjeta por cada par de meses consecutivos: May→Jun, Jun→Jul, Jul→Ago, Ago→Sep...
+  for(let i = 1; i < allMonthsReg.length; i++){
+    const mesAnterior = allMonthsReg[i-1];
+    const mesActual = allMonthsReg[i];
 
-  // agua y gas comparten eje (montos parecidos); energía usa un eje propio
-  // a la derecha porque su monto es varias veces mayor y, si comparte eje,
-  // aplasta visualmente las líneas de agua y gas contra la parte inferior
-  const datasets = Object.keys(TIPOS).map(tipo=>({
-    label: TIPOS[tipo].label,
-    data: allMonthsReg.map(m => byTipoReg[tipo][m] ?? null),
-    borderColor: TIPOS[tipo].color,
-    backgroundColor: TIPOS[tipo].color,
-    spanGaps: true,
-    tension: 0.25,
-    pointRadius: 3,
-    yAxisID: tipo === 'energia' ? 'y1' : 'y'
-  }));
+    const card = document.createElement('div');
+    card.className = 'chart-pair-card';
+    card.innerHTML = `
+      <h3>${monthLabel(mesAnterior)} → ${monthLabel(mesActual)}</h3>
+      <div class="pair-canvas-wrap"><canvas></canvas></div>
+    `;
+    chartContainer.appendChild(card);
 
-  if(chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels: allMonthsReg.map(monthLabel),
-      datasets
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 12 } } }
+    const chart = new Chart(card.querySelector('canvas'), {
+      type: 'bar',
+      data: {
+        labels: Object.keys(TIPOS).map(tipo => TIPOS[tipo].label),
+        datasets: [
+          {
+            label: monthLabel(mesAnterior),
+            data: Object.keys(TIPOS).map(tipo => byTipoReg[tipo][mesAnterior] ?? 0),
+            backgroundColor: Object.keys(TIPOS).map(tipo => TIPOS[tipo].color + '66')
+          },
+          {
+            label: monthLabel(mesActual),
+            data: Object.keys(TIPOS).map(tipo => byTipoReg[tipo][mesActual] ?? 0),
+            backgroundColor: Object.keys(TIPOS).map(tipo => TIPOS[tipo].color)
+          }
+        ]
       },
-      scales: {
-        y: {
-          beginAtZero: true,
-          position: 'left',
-          title: { display: true, text: 'Agua / Gas' },
-          ticks: { callback: v => '$'+v }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } }
         },
-        y1: {
-          beginAtZero: true,
-          position: 'right',
-          title: { display: true, text: 'Energía' },
-          grid: { drawOnChartArea: false },
-          ticks: { callback: v => '$'+v }
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { callback: v => '$'+v, font: { size: 10 } }
+          },
+          x: {
+            ticks: { font: { size: 11 } }
+          }
         }
       }
-    }
-  });
+    });
+    chartInstances.push(chart);
+  }
+
+  // al abrir la pestaña, ubicar el scroll en la tarjeta más reciente (la última)
+  requestAnimationFrame(()=>{ chartContainer.scrollLeft = chartContainer.scrollWidth; });
 }
 
 // initial render
