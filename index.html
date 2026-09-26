@@ -1002,14 +1002,6 @@ function monthKey(iso){
   return iso ? iso.slice(0,7) : null; // YYYY-MM
 }
 
-// fecha de referencia para el análisis: se prioriza la fecha de pago real
-// (todos los recibos se pagan el mismo día del mes, así que es más consistente
-// entre agua/gas/energía) y solo se usa el vencimiento como respaldo mientras
-// la factura sigue pendiente de pago
-function fechaAnalisis(f){
-  return f.fechaPago || f.fechaVencimiento;
-}
-
 function monthLabel(key){
   const [y,m] = key.split('-');
   const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -1025,9 +1017,22 @@ async function renderAnalisis(){
   const consumoEmpty = document.getElementById('consumo-empty');
   const listaTotales = document.getElementById('lista-totales-mensuales');
 
+  // las facturas pendientes (sin fechaPago) aún no tienen una fecha de pago
+  // real; como históricamente las 3 (agua/gas/energía) se pagan juntas el
+  // mismo día, se les asigna a TODAS el mismo mes de referencia: el del
+  // vencimiento más lejano entre las pendientes, en vez de que cada una use
+  // su propio vencimiento (lo que las separaba en meses distintos)
+  const pendientes = facturas.filter(f=>!f.fechaPago && f.fechaVencimiento);
+  const mesPendientes = pendientes.length
+    ? pendientes.map(f=>f.fechaVencimiento).sort().slice(-1)[0]
+    : null;
+  function fechaAnalisis(f){
+    return f.fechaPago || mesPendientes;
+  }
+
   // group by tipo -> mes -> total, usando TODAS las facturas registradas
   // (pendientes + pagadas), agrupadas por fecha de pago real; si aún no se
-  // ha pagado, se usa el vencimiento como estimado temporal
+  // ha pagado, se usa el mes compartido de pendientes calculado arriba
   const byTipoReg = { agua:{}, gas:{}, energia:{} };
   facturas.forEach(f=>{
     const mk = monthKey(fechaAnalisis(f));
