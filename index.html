@@ -987,10 +987,11 @@ async function renderAnalisis(){
   const listaTotales = document.getElementById('lista-totales-mensuales');
 
   // group by tipo -> mes -> total, usando TODAS las facturas registradas
-  // (sin importar si ya se pagaron), para la comparación y la gráfica
+  // (sin importar si ya se pagaron), agrupadas por su fecha de vencimiento
+  // (el mes real de la factura, no cuándo se tipeó en el sistema)
   const byTipoReg = { agua:{}, gas:{}, energia:{} };
   facturas.forEach(f=>{
-    const mk = monthKey(f.registradoEn);
+    const mk = monthKey(f.fechaVencimiento);
     if(!mk) return;
     byTipoReg[f.tipo][mk] = (byTipoReg[f.tipo][mk] || 0) + f.valor;
   });
