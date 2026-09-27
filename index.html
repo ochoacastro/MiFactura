@@ -502,7 +502,8 @@
   <!-- ANALISIS -->
   <section class="panel" id="panel-analisis">
     <div class="card">
-      <h2 style="font-size:17px; margin:0 0 14px;">Comparación mes vs. mes anterior</h2>
+      <h2 style="font-size:17px; margin:0 0 4px;">Comparación mes vs. mes anterior</h2>
+      <p id="stat-grid-subtitle" style="margin:0 0 14px; font-size:12.5px; color:var(--ink-soft); font-weight:600;"></p>
       <div class="stat-grid" id="stat-grid"></div>
       <div class="chart-scroll" id="chart-scroll"></div>
       <p id="chart-empty" class="empty" style="display:none;">Registra al menos dos meses de una factura para ver la comparación.</p>
@@ -1032,35 +1033,51 @@ async function renderAnalisis(){
   // consumo promedio y total mensual
   const allMonthsReg = [...new Set(Object.values(byTipoReg).flatMap(o=>Object.keys(o)))].sort();
 
-  // stat cards: última factura registrada vs. la anterior registrada, por tipo
-  statGrid.innerHTML = '';
-  Object.keys(TIPOS).forEach(tipo=>{
-    const months = Object.keys(byTipoReg[tipo]).sort();
-    const div = document.createElement('div');
-    div.className = 'stat';
-    if(months.length < 2){
-      div.innerHTML = `
-        <div class="label">${TIPOS[tipo].label}</div>
-        <div class="pct flat">—</div>
-        <div class="amt">Faltan datos</div>`;
-    }else{
-      const last = months[months.length-1];
-      const prev = months[months.length-2];
-      const vLast = byTipoReg[tipo][last];
-      const vPrev = byTipoReg[tipo][prev];
-      const diff = vLast - vPrev;
-      const pct = vPrev !== 0 ? (diff/vPrev*100) : 0;
-      const cls = pct > 0.5 ? 'up' : (pct < -0.5 ? 'down' : 'flat');
-      const arrow = pct > 0.5 ? '↑' : (pct < -0.5 ? '↓' : '→');
-      const diffSign = diff > 0 ? '+' : (diff < 0 ? '-' : '');
-      div.innerHTML = `
-        <div class="label">${TIPOS[tipo].label}</div>
-        <div class="pct ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</div>
-        <div class="diff-cop ${cls}">${diffSign}$${fmtMoney(Math.abs(diff))}</div>
-        <div class="amt">$${fmtMoney(vLast)} vs $${fmtMoney(vPrev)}</div>`;
+  // ---- Comparación mes vs. mes anterior ----
+  // se redibuja con el par de meses que se le pase; luego se sincroniza
+  // con la tarjeta de la gráfica que esté visible al deslizar (más abajo)
+  const statGridSubtitle = document.getElementById('stat-grid-subtitle');
+
+  function renderStatCards(mesAnterior, mesActual){
+    if(statGridSubtitle){
+      statGridSubtitle.textContent = (mesAnterior && mesActual)
+        ? `${monthLabel(mesAnterior)} → ${monthLabel(mesActual)}`
+        : '';
     }
-    statGrid.appendChild(div);
-  });
+    statGrid.innerHTML = '';
+    Object.keys(TIPOS).forEach(tipo=>{
+      const div = document.createElement('div');
+      div.className = 'stat';
+      const vLast = mesActual ? byTipoReg[tipo][mesActual] : undefined;
+      const vPrev = mesAnterior ? byTipoReg[tipo][mesAnterior] : undefined;
+      if(vLast == null && vPrev == null){
+        div.innerHTML = `
+          <div class="label">${TIPOS[tipo].label}</div>
+          <div class="pct flat">—</div>
+          <div class="amt">Faltan datos</div>`;
+      }else{
+        const vL = vLast ?? 0;
+        const vP = vPrev ?? 0;
+        const diff = vL - vP;
+        const pct = vP !== 0 ? (diff/vP*100) : 0;
+        const cls = pct > 0.5 ? 'up' : (pct < -0.5 ? 'down' : 'flat');
+        const arrow = pct > 0.5 ? '↑' : (pct < -0.5 ? '↓' : '→');
+        const diffSign = diff > 0 ? '+' : (diff < 0 ? '-' : '');
+        div.innerHTML = `
+          <div class="label">${TIPOS[tipo].label}</div>
+          <div class="pct ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</div>
+          <div class="diff-cop ${cls}">${diffSign}$${fmtMoney(Math.abs(diff))}</div>
+          <div class="amt">$${fmtMoney(vL)} vs $${fmtMoney(vP)}</div>`;
+      }
+      statGrid.appendChild(div);
+    });
+  }
+
+  if(allMonthsReg.length >= 2){
+    renderStatCards(allMonthsReg[allMonthsReg.length-2], allMonthsReg[allMonthsReg.length-1]);
+  }else{
+    renderStatCards(null, null);
+  }
 
   // ---- Consumo promedio (últimos 6 meses) ----
   const consumoByTipo = { agua:{}, gas:{}, energia:{} };
@@ -1133,6 +1150,7 @@ async function renderAnalisis(){
   emptyMsg.style.display = 'none';
 
   // una tarjeta por cada par de meses consecutivos: May→Jun, Jun→Jul, Jul→Ago, Ago→Sep...
+  const pares = [];
   for(let i = 1; i < allMonthsReg.length; i++){
     const mesAnterior = allMonthsReg[i-1];
     const mesActual = allMonthsReg[i];
@@ -1180,10 +1198,29 @@ async function renderAnalisis(){
       }
     });
     chartInstances.push(chart);
+    pares.push({ mesAnterior, mesActual, el: card });
   }
 
   // al abrir la pestaña, ubicar el scroll en la tarjeta más reciente (la última)
   requestAnimationFrame(()=>{ chartContainer.scrollLeft = chartContainer.scrollWidth; });
+
+  // al deslizar entre tarjetas de la gráfica, las tarjetas de comparación
+  // de arriba cambian para reflejar el mismo par de meses que se ve
+  chartContainer.onscroll = () => {
+    if(chartContainer._syncPending) return;
+    chartContainer._syncPending = true;
+    requestAnimationFrame(()=>{
+      chartContainer._syncPending = false;
+      if(pares.length === 0) return;
+      let closest = pares[0];
+      let minDist = Infinity;
+      pares.forEach(p=>{
+        const dist = Math.abs(p.el.offsetLeft - chartContainer.scrollLeft);
+        if(dist < minDist){ minDist = dist; closest = p; }
+      });
+      renderStatCards(closest.mesAnterior, closest.mesActual);
+    });
+  };
 }
 
 // initial render
