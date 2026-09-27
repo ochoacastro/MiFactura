@@ -171,6 +171,19 @@
   }
   .filter-row button.active{background:var(--ink); color:#fff; border-color:var(--ink);}
 
+  .pending-total{
+    border:1px solid var(--line);
+    background:#FCFDFC;
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+  }
+  .pending-total strong{font-size:13.5px; color:var(--ink-soft);}
+  .pending-total .value{font-size:18px; font-weight:800;}
+
   .payment-item{
     border:1px solid var(--line);
     border-radius:12px;
@@ -482,6 +495,7 @@
         <button data-filter="gas">Gas</button>
         <button data-filter="energia">Energía</button>
       </div>
+      <div id="pendientes-total" class="pending-total"></div>
       <div id="lista-pendientes"></div>
     </div>
   </section>
@@ -884,9 +898,15 @@ function isOverdue(fechaVencimiento){
 
 async function renderPendientes(){
   const cont = document.getElementById('lista-pendientes');
+  const totalBox = document.getElementById('pendientes-total');
   cont.innerHTML = '<p class="empty">Cargando…</p>';
   const todas = (await getAllFacturas()).filter(f=>!f.fechaPago);
   const facturas = filtroPendientes === 'todas' ? todas : todas.filter(f=>f.tipo===filtroPendientes);
+
+  // total de lo pendiente según el filtro activo (Todas/Agua/Gas/Energía)
+  const totalPendiente = facturas.reduce((sum,f)=> sum + f.valor, 0);
+  const etiquetaTotal = filtroPendientes === 'todas' ? 'Total pendiente' : `Total pendiente · ${TIPOS[filtroPendientes].label}`;
+  totalBox.innerHTML = `<strong>${etiquetaTotal}</strong><span class="value">$${fmtMoney(totalPendiente)}</span>`;
 
   // ordenar por fecha de vencimiento más próxima primero
   facturas.sort((a,b)=> (a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||''));
