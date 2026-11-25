@@ -201,9 +201,9 @@
   .payment-item .value{font-size:17px; font-weight:700;}
   .payment-item .meta{font-size:12.5px; color:var(--ink-soft); line-height:1.5;}
   .payment-item .del{
-    position:absolute;
-    top:10px;
-    right:12px;
+    display:block;
+    margin:8px 0 0 auto;
+    padding:0;
     border:none;
     background:none;
     color:var(--ink-soft);
@@ -377,9 +377,61 @@
   .desglose-body{margin-top:12px;}
   .desglose-box.cerrado .desglose-body{display:none;}
   input[readonly]{background:var(--bg); font-weight:700;}
+
+  /* Menú general (Inicio) */
+  body.en-menu nav.tabs{display:none;}
+  .menu-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:12px;
+  }
+  @media (min-width:480px){
+    .menu-grid{grid-template-columns:repeat(3, 1fr);}
+  }
+  .menu-tile{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:10px;
+    padding:16px 14px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    font:inherit;
+    color:var(--ink);
+    text-align:left;
+    cursor:pointer;
+  }
+  .menu-tile:active{transform:scale(.97);}
+  .menu-icon{
+    width:46px;
+    height:46px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .menu-tile strong{font-size:15px;}
+  .menu-tile .sub{font-size:12px; color:var(--ink-soft); margin-top:-6px;}
+  .ico{
+    width:24px;
+    height:24px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+  nav.tabs button .ico{width:16px; height:16px; vertical-align:-3px; margin-right:4px;}
+  nav.tabs button[data-tab="menu"]{
+    position:sticky;
+    left:0;
+    z-index:1;
+    box-shadow:6px 0 8px -4px rgba(0,0,0,.12);
+  }
 </style>
 </head>
-<body>
+<body class="en-menu">
 <div class="app">
 
   <header class="hero">
@@ -390,7 +442,8 @@
   <div id="storage-banner" class="storage-banner" style="display:none;"></div>
 
   <nav class="tabs">
-    <button data-tab="agua" class="active">Agua</button>
+    <button data-tab="menu" class="active"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>Inicio</button>
+    <button data-tab="agua">Agua</button>
     <button data-tab="gas">Gas</button>
     <button data-tab="energia">Energía</button>
     <button data-tab="pendientes">Facturas pendientes</button>
@@ -398,8 +451,56 @@
     <button data-tab="analisis">Análisis</button>
   </nav>
 
+  <!-- MENU GENERAL -->
+  <section class="panel active" id="panel-menu">
+    <div class="menu-grid">
+      <button type="button" class="menu-tile" data-ir="agua">
+        <span class="menu-icon" style="background:var(--agua-bg); color:var(--agua)">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M12 2.5C8.5 7 6 10.4 6 14a6 6 0 0 0 12 0c0-3.6-2.5-7-6-11.5z"/></svg>
+        </span>
+        <strong>Agua</strong>
+        <span class="sub">Registrar factura</span>
+      </button>
+      <button type="button" class="menu-tile" data-ir="gas">
+        <span class="menu-icon" style="background:var(--gas-bg); color:var(--gas)">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-3.5-2.5-6-4-8-.4 2-1.5 3.3-3 4 0-3.5-1.5-6.5-4-9 0 4.5-3 7-3 12a7 7 0 0 0 7 8z"/><path d="M12 22a3 3 0 0 1-3-3c0-2 1.5-3 3-5 1.5 2 3 3 3 5a3 3 0 0 1-3 3z"/></svg>
+        </span>
+        <strong>Gas</strong>
+        <span class="sub">Registrar factura</span>
+      </button>
+      <button type="button" class="menu-tile" data-ir="energia">
+        <span class="menu-icon" style="background:var(--energia-bg); color:var(--energia)">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>
+        </span>
+        <strong>Energía</strong>
+        <span class="sub">Registrar factura</span>
+      </button>
+      <button type="button" class="menu-tile" data-ir="pendientes">
+        <span class="menu-icon" style="background:#F7E3E3; color:var(--up)">
+          <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        </span>
+        <strong>Facturas pendientes</strong>
+        <span class="sub">Por pagar</span>
+      </button>
+      <button type="button" class="menu-tile" data-ir="pagos">
+        <span class="menu-icon" style="background:#E6F3EB; color:var(--down)">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5-2 1.5-2.5-1.5L5 21z"/><path d="m9 11 2 2 4-4"/></svg>
+        </span>
+        <strong>Pagos registrados</strong>
+        <span class="sub">Historial</span>
+      </button>
+      <button type="button" class="menu-tile" data-ir="analisis">
+        <span class="menu-icon" style="background:#E4E8E6; color:var(--ink)">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M7 17v-6"/><path d="M12 17V5"/><path d="M17 17v-9"/></svg>
+        </span>
+        <strong>Análisis</strong>
+        <span class="sub">Comparación mensual</span>
+      </button>
+    </div>
+  </section>
+
   <!-- AGUA -->
-  <section class="panel active" id="panel-agua">
+  <section class="panel" id="panel-agua">
     <div class="card">
       <div class="type-header">
         <span class="dot" style="background:var(--agua)"></span>
@@ -425,7 +526,7 @@
         <div class="row2">
           <div>
             <label>Valor a pagar</label>
-            <input type="number" name="valor" step="0.01" min="0" required placeholder="0.00">
+            <input type="text" inputmode="decimal" name="valor" class="monto-input" required placeholder="0">
           </div>
           <div>
             <label>Consumo (m³)</label>
@@ -467,7 +568,7 @@
         <div class="row2">
           <div>
             <label>Valor a pagar</label>
-            <input type="number" name="valor" step="0.01" min="0" required placeholder="0.00">
+            <input type="text" inputmode="decimal" name="valor" class="monto-input" required placeholder="0">
           </div>
           <div>
             <label>Consumo (m³)</label>
@@ -513,21 +614,21 @@
           </div>
           <div class="desglose-body">
             <label>Consumo activa (energía)</label>
-            <input type="number" class="desglose-input" data-campo="energia" step="0.01" min="0" required placeholder="0.00">
+            <input type="text" inputmode="decimal" class="desglose-input monto-input" data-campo="energia" required placeholder="0">
             <label>Cargo aseo</label>
-            <input type="number" class="desglose-input" data-campo="aseo" step="0.01" min="0" placeholder="0.00">
+            <input type="text" inputmode="decimal" class="desglose-input monto-input" data-campo="aseo" placeholder="0">
             <label>Impuesto alumbrado público</label>
-            <input type="number" class="desglose-input" data-campo="alumbrado" step="0.01" min="0" placeholder="0.00">
+            <input type="text" inputmode="decimal" class="desglose-input monto-input" data-campo="alumbrado" placeholder="0">
             <label>Subsidio (descuento)</label>
-            <input type="number" class="desglose-input" data-campo="subsidio" data-signo="-1" step="0.01" placeholder="0.00">
+            <input type="text" inputmode="decimal" class="desglose-input monto-input" data-campo="subsidio" data-signo="-1" placeholder="0">
             <label>Otros cargos</label>
-            <input type="number" class="desglose-input" data-campo="otros" step="0.01" placeholder="0.00">
+            <input type="text" inputmode="decimal" class="desglose-input monto-input" data-campo="otros" data-negativo="1" placeholder="0">
           </div>
         </div>
         <div class="row2">
           <div>
             <label>Valor a pagar (total)</label>
-            <input type="number" name="valor" step="0.01" readonly placeholder="0.00">
+            <input type="text" name="valor" readonly placeholder="0">
           </div>
           <div>
             <label>Consumo (Kwh)</label>
@@ -625,6 +726,26 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
     if(btn.dataset.tab === 'pendientes') renderPendientes();
     if(btn.dataset.tab === 'pagos') renderPagos();
     if(btn.dataset.tab === 'analisis') renderAnalisis();
+  });
+});
+
+// ---------- Menú general ----------
+// en Inicio solo se ve la cuadrícula; en las demás secciones aparecen las
+// pestañas (con "Inicio" al principio para volver al menú)
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.body.classList.toggle('en-menu', btn.dataset.tab === 'menu');
+  });
+});
+
+document.querySelectorAll('.menu-tile').forEach(tile=>{
+  tile.addEventListener('click', ()=>{
+    const tab = document.querySelector(`nav.tabs button[data-tab="${tile.dataset.ir}"]`);
+    if(!tab) return;
+    tab.click();
+    const nav = tab.parentElement;
+    nav.scrollLeft = (tab.offsetLeft - nav.offsetLeft) - (nav.clientWidth - tab.offsetWidth) / 2;
+    window.scrollTo(0, 0);
   });
 });
 
@@ -841,6 +962,48 @@ document.querySelectorAll('.copy-btn[data-copy-input]').forEach(btn=>{
 // precargar código de usuario y enlace de pago guardados por tipo
 Object.keys(TIPOS).forEach(tipo => prefillFromConfig(tipo));
 
+// ---------- Formato de miles en los valores ----------
+// Mientras se escribe, pone el punto de mil (127.265). Los decimales,
+// si los hay, van con coma (1.234,50).
+function formatoMonto(texto, permiteNegativo){
+  let s = String(texto).replace(/[^\d,\-]/g, '');
+  const negativo = permiteNegativo && s.startsWith('-');
+  s = s.replace(/-/g, '');
+  const partes = s.split(',');
+  let entero = partes[0].replace(/^0+(?=\d)/, '');
+  entero = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  let out = entero;
+  if(partes.length > 1) out += ',' + partes.slice(1).join('').slice(0, 2);
+  return (negativo ? '-' : '') + out;
+}
+
+// "127.265" -> 127265 · "1.234,5" -> 1234.5
+function parseMonto(texto){
+  if(texto == null) return NaN;
+  return parseFloat(String(texto).replace(/\./g, '').replace(',', '.'));
+}
+
+// número -> texto con punto de mil
+function montoATexto(n){
+  return formatoMonto(String(n).replace('.', ','), true);
+}
+
+document.querySelectorAll('.monto-input').forEach(inp=>{
+  inp.addEventListener('input', ()=>{
+    const pos = inp.selectionStart ?? inp.value.length;
+    const utiles = inp.value.slice(0, pos).replace(/[^\d,\-]/g, '').length;
+    const nuevo = formatoMonto(inp.value, inp.dataset.negativo === '1');
+    inp.value = nuevo;
+    // mantener el cursor en el mismo lugar aunque se agreguen puntos
+    let i = 0, cuenta = 0;
+    while(i < nuevo.length && cuenta < utiles){
+      if(/[\d,\-]/.test(nuevo[i])) cuenta++;
+      i++;
+    }
+    try{ inp.setSelectionRange(i, i); }catch(e){}
+  });
+});
+
 // ---------- Desglose del recibo (energía) ----------
 // Suma Consumo activa + Aseo + Alumbrado + Otros y resta el Subsidio.
 // El resultado se escribe en "Valor a pagar (total)".
@@ -850,7 +1013,7 @@ function leerDesglose(form){
   const desglose = {};
   let total = 0;
   inputs.forEach(inp=>{
-    const n = parseFloat(inp.value);
+    const n = parseMonto(inp.value);
     const v = isNaN(n) ? 0 : n;
     if(inp.dataset.signo === '-1'){
       desglose[inp.dataset.campo] = Math.abs(v);
@@ -868,7 +1031,7 @@ document.querySelectorAll('.invoice-form').forEach(form=>{
   const valorInput = form.querySelector('[name="valor"]');
   form.querySelectorAll('.desglose-input').forEach(inp=>{
     inp.addEventListener('input', ()=>{
-      valorInput.value = leerDesglose(form).total;
+      valorInput.value = montoATexto(leerDesglose(form).total);
     });
   });
 });
@@ -905,7 +1068,7 @@ document.querySelectorAll('.invoice-form').forEach(form=>{
       codigoUsuario,
       enlacePago,
       codigoPago: data.get('codigoPago').trim(),
-      valor: parseFloat(data.get('valor')),
+      valor: parseMonto(data.get('valor')),
       consumo: (consumoRaw !== null && consumoRaw.trim() !== '') ? parseFloat(consumoRaw) : null,
       fechaVencimiento: data.get('fechaVencimiento'),
       fechaPago: null,
@@ -966,7 +1129,6 @@ async function renderPagos(){
     div.className = 'payment-item';
     div.style.borderLeft = `4px solid ${t.color}`;
     div.innerHTML = `
-      <button class="del" data-id="${f.id}">Eliminar</button>
       <div class="top">
         <strong>${t.label}</strong>
         <span class="value">$${fmtMoney(f.valor)}</span>
@@ -975,6 +1137,7 @@ async function renderPagos(){
         Usuario: ${f.codigoUsuario} · Cód. pago: ${f.codigoPago}<br>
         Vence: ${fmtDate(f.fechaVencimiento)} · Pagado: ${fmtDate(f.fechaPago)}${(f.consumo!=null && !isNaN(f.consumo)) ? ` · Consumo: ${f.consumo} ${t.unidad}` : ''}
       </div>
+      <button class="del" data-id="${f.id}">Eliminar</button>
     `;
     cont.appendChild(div);
   });
