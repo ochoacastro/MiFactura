@@ -339,6 +339,44 @@
   .chart-pair-card .pair-canvas-wrap{position:relative; height:190px;}
   .chart-pair-card .pair-canvas-wrap canvas{width:100% !important; height:100% !important;}
   canvas{max-width:100%;}
+
+  /* Desglose del recibo de energía */
+  .desglose-box{
+    border:1px dashed var(--line);
+    border-radius:10px;
+    padding:12px;
+    margin:12px 0;
+    background:var(--energia-bg);
+  }
+  .desglose-title{
+    font-size:12px;
+    font-weight:700;
+    color:var(--energia);
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  .desglose-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    cursor:pointer;
+  }
+  .desglose-toggle{
+    width:30px;
+    height:30px;
+    padding:0;
+    border:1px solid var(--energia);
+    border-radius:8px;
+    background:#fff;
+    color:var(--energia);
+    font-size:20px;
+    font-weight:700;
+    line-height:1;
+    cursor:pointer;
+  }
+  .desglose-body{margin-top:12px;}
+  .desglose-box.cerrado .desglose-body{display:none;}
+  input[readonly]{background:var(--bg); font-weight:700;}
 </style>
 </head>
 <body>
@@ -468,10 +506,28 @@
           <input type="text" name="codigoPago" required placeholder="Ej. 987654321">
           <button type="button" class="copy-btn" data-copy-input="codigoPago">Copiar</button>
         </div>
+        <div class="desglose-box">
+          <div class="desglose-header">
+            <span class="desglose-title">Desglose del recibo</span>
+            <button type="button" class="desglose-toggle" aria-expanded="true" aria-label="Ocultar desglose">−</button>
+          </div>
+          <div class="desglose-body">
+            <label>Consumo activa (energía)</label>
+            <input type="number" class="desglose-input" data-campo="energia" step="0.01" min="0" required placeholder="0.00">
+            <label>Cargo aseo</label>
+            <input type="number" class="desglose-input" data-campo="aseo" step="0.01" min="0" placeholder="0.00">
+            <label>Impuesto alumbrado público</label>
+            <input type="number" class="desglose-input" data-campo="alumbrado" step="0.01" min="0" placeholder="0.00">
+            <label>Subsidio (descuento)</label>
+            <input type="number" class="desglose-input" data-campo="subsidio" data-signo="-1" step="0.01" placeholder="0.00">
+            <label>Otros cargos</label>
+            <input type="number" class="desglose-input" data-campo="otros" step="0.01" placeholder="0.00">
+          </div>
+        </div>
         <div class="row2">
           <div>
-            <label>Valor a pagar</label>
-            <input type="number" name="valor" step="0.01" min="0" required placeholder="0.00">
+            <label>Valor a pagar (total)</label>
+            <input type="number" name="valor" step="0.01" readonly placeholder="0.00">
           </div>
           <div>
             <label>Consumo (Kwh)</label>
@@ -785,6 +841,55 @@ document.querySelectorAll('.copy-btn[data-copy-input]').forEach(btn=>{
 // precargar código de usuario y enlace de pago guardados por tipo
 Object.keys(TIPOS).forEach(tipo => prefillFromConfig(tipo));
 
+// ---------- Desglose del recibo (energía) ----------
+// Suma Consumo activa + Aseo + Alumbrado + Otros y resta el Subsidio.
+// El resultado se escribe en "Valor a pagar (total)".
+function leerDesglose(form){
+  const inputs = form.querySelectorAll('.desglose-input');
+  if(inputs.length === 0) return null;
+  const desglose = {};
+  let total = 0;
+  inputs.forEach(inp=>{
+    const n = parseFloat(inp.value);
+    const v = isNaN(n) ? 0 : n;
+    if(inp.dataset.signo === '-1'){
+      desglose[inp.dataset.campo] = Math.abs(v);
+      total -= Math.abs(v);
+    }else{
+      desglose[inp.dataset.campo] = v;
+      total += v;
+    }
+  });
+  desglose.total = Math.round(total*100)/100;
+  return desglose;
+}
+
+document.querySelectorAll('.invoice-form').forEach(form=>{
+  const valorInput = form.querySelector('[name="valor"]');
+  form.querySelectorAll('.desglose-input').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      valorInput.value = leerDesglose(form).total;
+    });
+  });
+});
+
+// mostrar (+) / ocultar (−) el desglose
+document.querySelectorAll('.desglose-box').forEach(box=>{
+  const header = box.querySelector('.desglose-header');
+  const btn = box.querySelector('.desglose-toggle');
+  function setAbierto(abierto){
+    box.classList.toggle('cerrado', !abierto);
+    btn.textContent = abierto ? '−' : '+';
+    btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+    btn.setAttribute('aria-label', abierto ? 'Ocultar desglose' : 'Mostrar desglose');
+  }
+  header.addEventListener('click', ()=> setAbierto(box.classList.contains('cerrado')));
+  // si está oculto y falta un dato obligatorio al guardar, se abre solo
+  box.querySelectorAll('.desglose-input').forEach(inp=>{
+    inp.addEventListener('invalid', ()=> setAbierto(true));
+  });
+});
+
 // ---------- Formularios ----------
 document.querySelectorAll('.invoice-form').forEach(form=>{
   form.addEventListener('submit', async (e)=>{
@@ -806,6 +911,11 @@ document.querySelectorAll('.invoice-form').forEach(form=>{
       fechaPago: null,
       registradoEn: new Date().toISOString()
     };
+    const desglose = leerDesglose(form);
+    if(desglose){
+      factura.desglose = desglose;
+      factura.valor = desglose.total;
+    }
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     try{
